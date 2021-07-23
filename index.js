@@ -53,7 +53,7 @@ let controls;
 
 let grabbing = false;
 
-const spheres = [];
+const atoms = [];
 const bodies = [];
 const meshes = [];
 let grabbedMesh;
@@ -187,8 +187,8 @@ function render() {
 }
 
 function collideObject(indexTip) {
-  for (let i = 0; i < meshes.length; i++) {
-    const sphere = meshes[i];
+  for (let i = 0; i < atoms.length; i++) {
+    const sphere = atoms[i];
     const distance = indexTip
       .getWorldPosition(tmpVector1)
       .distanceTo(sphere.getWorldPosition(tmpVector2));
@@ -287,6 +287,7 @@ function buildMolecule(pdb) {
       bodies.push(sphereBody);
       world.addBody(sphereBody);
       scene.add(atom);
+      atoms.push(atom);
     }
   }
 }
