@@ -21,9 +21,9 @@ let atomNames = [];
 
 const timestep = 1 / 60;
 
-const atomRadius = 0.01;
-const scale = .03;
-const translation = new THREE.Vector3(-0.8, 0.3, -.5);
+const atomRadius = 0.015;
+const scale = .04;
+const translation = new THREE.Vector3(-1.1, 0.8, -.5);
 
 const tmpVector1 = new THREE.Vector3();
 const tmpVector2 = new THREE.Vector3();
