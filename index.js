@@ -187,8 +187,8 @@ function render() {
 }
 
 function collideObject(indexTip) {
-  for (let i = 0; i < spheres.length; i++) {
-    const sphere = spheres[i];
+  for (let i = 0; i < meshes.length; i++) {
+    const sphere = meshes[i];
     const distance = indexTip
       .getWorldPosition(tmpVector1)
       .distanceTo(sphere.getWorldPosition(tmpVector2));
@@ -276,6 +276,7 @@ function buildMolecule(pdb) {
       );
       atom.position.multiplyScalar(scale);
       atom.position.add(translation);
+      atom.geometry.computeBoundingSphere();
       meshes.push(atom);
 
       const sphereBody = new CANNON.Body({
