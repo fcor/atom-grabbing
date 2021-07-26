@@ -54,6 +54,7 @@ let controls;
 let grabbing = false;
 
 const atoms = [];
+const atomBodies = [];
 const bodies = [];
 const meshes = [];
 let grabbedMesh;
@@ -285,9 +286,291 @@ function buildMolecule(pdb) {
       });
       sphereBody.position.copy(atom.position);
       bodies.push(sphereBody);
+      atomBodies.push(sphereBody);
       world.addBody(sphereBody);
       scene.add(atom);
       atoms.push(atom);
+    }
+  }
+
+  for (var j = 0; j < atomBodies.length; j++) {
+    if (atomNames[j] === 'CA') {
+      for (var jj = j+1; jj < atomBodies.length; jj++) {
+        if (atomNames[jj] === 'CA' && resids[jj]-resids[j]==1) {
+          //CA - CA+1
+          var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[jj].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[jj].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[jj].position.z,2) )
+          var c = new CANNON.DistanceConstraint(atomBodies[jj], atomBodies[j], distance, 1e3);
+          world.addConstraint(c);
+          //C-N+1
+          var distance = Math.sqrt( Math.pow(atomBodies[j+1].position.x - atomBodies[jj-1].position.x,2) + Math.pow(atomBodies[j+1].position.y - atomBodies[jj-1].position.y,2) + Math.pow(atomBodies[j+1].position.z - atomBodies[jj-1].position.z,2) )
+          var c = new CANNON.DistanceConstraint(atomBodies[j+1], atomBodies[jj-1], distance, 1e3);
+          world.addConstraint(c);
+          //O-N+1
+          var distance = Math.sqrt( Math.pow(atomBodies[j+2].position.x - atomBodies[jj-1].position.x,2) + Math.pow(atomBodies[j+2].position.y - atomBodies[jj-1].position.y,2) + Math.pow(atomBodies[j+2].position.z - atomBodies[jj-1].position.z,2) )
+          var c = new CANNON.DistanceConstraint(atomBodies[j+2], atomBodies[jj-1], distance, 1e3);
+          world.addConstraint(c);          
+          break
+        }
+      }
+        //CA-N
+        var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[j-1].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[j-1].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[j-1].position.z,2) )
+        var c = new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j-1], distance, 1e3);
+        world.addConstraint(c);
+        //CA-C
+        var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[j+1].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[j+1].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[j+1].position.z,2) )
+        var c = new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+1], distance, 1e3);
+        world.addConstraint(c);
+        //CA-O
+        var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[j+2].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[j+2].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[j+2].position.z,2) )
+        var c = new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+2], distance, 1e3);
+        world.addConstraint(c);
+        //C-O
+        var distance = Math.sqrt( Math.pow(atomBodies[j+1].position.x - atomBodies[j+2].position.x,2) + Math.pow(atomBodies[j+1].position.y - atomBodies[j+2].position.y,2) + Math.pow(atomBodies[j+1].position.z - atomBodies[j+2].position.z,2) )
+        var c = new CANNON.DistanceConstraint(atomBodies[j+1], atomBodies[j+2], distance, 1e3);
+        world.addConstraint(c);
+
+        //CA-CB
+        if (restypes[j] !== 'GLY') {
+          var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[j+3].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[j+3].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[j+3].position.z,2) )
+          var c = new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+3], distance, 1e3);
+          world.addConstraint(c);
+          var distance = Math.sqrt( Math.pow(atomBodies[j-1].position.x - atomBodies[j+3].position.x,2) + Math.pow(atomBodies[j-1].position.y - atomBodies[j+3].position.y,2) + Math.pow(atomBodies[j-1].position.z - atomBodies[j+3].position.z,2) )
+          var c = new CANNON.DistanceConstraint(atomBodies[j-1], atomBodies[j+3], distance, 1e3);
+          world.addConstraint(c);
+        }
+        switch(restypes[j]) {
+          case 'CYS':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            break;
+          case 'SER':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            break;
+          case 'THR':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            break;
+          case 'VAL':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            break;
+          case 'ASP':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+          case 'ASN':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+          case 'GLU':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7]));
+          case 'GLN':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7]));
+          case 'PHE':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+9]));
+            break;
+          case 'HIS':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8]));
+            break;
+          case 'ILE':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6]));
+            break;
+          case 'LEU':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6]));
+            break;
+          case 'LYS':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7]));
+            break;
+          case 'MET':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
+            break;
+          case 'PRO':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j-1]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j-1]));
+            break;
+          case 'ARG':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+9]));
+            break;
+          case 'TRP':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+10]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+11]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+12]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+10]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+11]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+12]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+10]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+11]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+12]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+10]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+11]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+12]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+10]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+11]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+12]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+10]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+11]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+12]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+9], atomBodies[j+10]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+9], atomBodies[j+11]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+9], atomBodies[j+12]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+10], atomBodies[j+11]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+10], atomBodies[j+12]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+11], atomBodies[j+12]));
+            break;
+          case 'TYR':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+10]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+10]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+10]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+10]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+10]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+9]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+10]));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+9], atomBodies[j+10]));
+            break;
+      }
     }
   }
 }
