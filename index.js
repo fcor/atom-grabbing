@@ -5,7 +5,7 @@ import { VRButton } from "./webxr/VRButton.js";
 import { XRControllerModelFactory } from "./webxr/XRControllerModelFactory.js";
 import { XRHandModelFactory } from "./webxr/XRHandModelFactory.js";
 import cannonDebugger from "./libs/cannon-es-debugger.js";
-import { pdb } from "./utils.js";
+import { pdb, elementNames, elementradii } from "./utils.js";
 
 let container;
 let camera, scene, renderer, world;
@@ -22,6 +22,7 @@ let atomNames = [];
 const timestep = 1 / 60;
 
 const atomRadius = 0.015;
+const stickRadius = 0.005;
 const scale = .04;
 const translation = new THREE.Vector3(-1.1, 0.8, -.5);
 
@@ -55,6 +56,7 @@ let grabbing = false;
 
 const atoms = [];
 const atomBodies = [];
+const sticks = [];
 const bodies = [];
 const meshes = [];
 let grabbedMesh;
@@ -200,6 +202,65 @@ function collideObject(indexTip) {
   return null;
 }
 
+// This function creates a 3D cylinder from A to B
+function cylindricalSegment(A, B, radius, material) {
+  var vec = B.clone();
+  vec.sub(A);
+  var h = vec.length();
+  vec.normalize();
+  var quaternion = new THREE.Quaternion();
+  quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec);
+  var geometry = new THREE.CylinderBufferGeometry(radius, radius, h, 32);
+  geometry.translate(0, h / 2, 0);
+  var cylinder = new THREE.Mesh(geometry, material);
+  cylinder.applyQuaternion(quaternion);
+  cylinder.position.set(A.x, A.y, A.z);
+  return cylinder;
+}
+
+// This function returns 1.2 * (A + B)^2
+// A and B are element radius
+function radiiSum(elementA, elementB) {
+  return 1.2 * Math.pow(elementA + elementB, 2);
+}
+
+function getBonds(atoms, indexes) {
+  let bonds = {};
+
+  for (let i = 0; i < atoms.length; i++) {
+    const currentAtomI = `atom${i + 1}`;
+
+    let distsqr;
+    let bondedAtoms = [];
+
+    for (let j = i + 1; j < atoms.length; j++) {
+      const currentAtomJ = `atom${j + 1}`;
+
+      tmpVector1.copy(atoms[i].position);
+      tmpVector1.sub(translation);
+      tmpVector1.multiplyScalar(1/scale);
+
+      tmpVector2.copy(atoms[j].position);
+      tmpVector2.sub(translation);
+      tmpVector2.multiplyScalar(1/scale);
+
+      //get distance squared
+      distsqr =
+        Math.pow(tmpVector1.x - tmpVector2.x, 2) +
+        Math.pow(tmpVector1.y - tmpVector2.y, 2) +
+        Math.pow(tmpVector1.z - tmpVector2.z, 2);
+
+      //if distance squared is less than 1.2 x the sum of the radii squared, add a bond
+      const radSum = radiiSum(elementradii[indexes[i]], elementradii[indexes[j]]);
+      if (distsqr < radSum) {
+        bondedAtoms.push(currentAtomJ);
+      }
+    }
+    bonds[currentAtomI] = bondedAtoms;
+  }
+  return bonds;
+}
+
 function onPinchEnd(event) {
   const controller = event.target;
   if (controller.userData.selected !== undefined) {
@@ -241,6 +302,61 @@ function updateMeshPositions() {
       meshes[i].quaternion.copy(bodies[i].quaternion);
     }
   }
+
+  sticks.forEach(function (bond) {
+    var B = new THREE.Vector3(
+      atoms[bond.atomA].position.x,
+      atoms[bond.atomA].position.y,
+      atoms[bond.atomA].position.z
+    );
+
+    var A = new THREE.Vector3(
+      atoms[bond.atomA].position.x / 2 +
+        atoms[bond.atomB].position.x / 2,
+      atoms[bond.atomA].position.y / 2 +
+        atoms[bond.atomB].position.y / 2,
+      atoms[bond.atomA].position.z / 2 +
+        atoms[bond.atomB].position.z / 2
+    );
+
+    var C = new THREE.Vector3(
+      atoms[bond.atomA].position.x / 2 +
+        atoms[bond.atomB].position.x / 2,
+      atoms[bond.atomA].position.y / 2 +
+        atoms[bond.atomB].position.y / 2,
+      atoms[bond.atomA].position.z / 2 +
+        atoms[bond.atomB].position.z / 2
+    );
+    var D = new THREE.Vector3(
+      atoms[bond.atomB].position.x,
+      atoms[bond.atomB].position.y,
+      atoms[bond.atomB].position.z
+    );
+
+    var vec = B.clone();
+    vec.sub(A);
+    var h = vec.length();
+    vec.normalize();
+    var quaternion = new THREE.Quaternion();
+    quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec);
+    bond.meshes[0].position.set(0, 0, 0);
+    bond.meshes[0].rotation.set(0, 0, 0);
+    bond.meshes[0].translateOnAxis(0, h / 2, 0);
+    bond.meshes[0].applyQuaternion(quaternion);
+    bond.meshes[0].position.set(A.x, A.y, A.z);
+
+    var vec2 = D.clone();
+    vec2.sub(C);
+    var h2 = vec.length();
+    vec2.normalize();
+    var quaternion2 = new THREE.Quaternion();
+    quaternion2.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec2);
+    bond.meshes[1].position.set(0, 0, 0);
+    bond.meshes[1].rotation.set(0, 0, 0);
+    bond.meshes[1].translateOnAxis(0, h2 / 2, 0);
+    bond.meshes[1].applyQuaternion(quaternion2);
+    bond.meshes[1].position.set(C.x, C.y, C.z);
+  });
 }
 
 function buildMolecule(pdb) {
@@ -292,6 +408,70 @@ function buildMolecule(pdb) {
       atoms.push(atom);
     }
   }
+
+  let atomIndexes = [];
+
+  atomNames.forEach((atom, index) => {
+    for (let j = 0; j < elementNames.length; j++) {
+      if (atom.substring(0, 1) === elementNames[j]) {
+        atomIndexes[index] = j;
+        break;
+      }
+    }
+  });
+
+  const bonds = getBonds(atoms, atomIndexes);
+  
+  const bondKeys = Object.keys(bonds);
+  bondKeys.forEach(function (atom, atomIndex) {
+    //point1 is the first atom (i), point3 is the second atom (j)
+    //point2 is at the center in-between atoms i and j
+    //then the first half of the bond is from sphere 1 to 2 and the
+    //second half of the bond is from point2 to point3
+    const point1 = new THREE.Vector3(
+      atoms[atomIndex].position.x,
+      atoms[atomIndex].position.y,
+      atoms[atomIndex].position.z
+    );
+
+    bonds[atom].forEach(function (bondedAtom) {
+      const bondedAtomIndex = bondKeys.indexOf(bondedAtom);
+
+      const point2 = new THREE.Vector3(
+        atoms[bondedAtomIndex].position.x / 2 + atoms[atomIndex].position.x / 2,
+        atoms[bondedAtomIndex].position.y / 2 + atoms[atomIndex].position.y / 2,
+        atoms[bondedAtomIndex].position.z / 2 + atoms[atomIndex].position.z / 2
+      );
+
+      const point3 = new THREE.Vector3(
+        atoms[bondedAtomIndex].position.x,
+        atoms[bondedAtomIndex].position.y,
+        atoms[bondedAtomIndex].position.z
+      );
+
+      const bond1 = cylindricalSegment(
+        point2,
+        point1,
+        stickRadius,
+        atoms[atomIndex].material.clone()
+      );
+      const bond2 = cylindricalSegment(
+        point2,
+        point3,
+        stickRadius,
+        atoms[bondedAtomIndex].material.clone()
+      );
+
+      scene.add(bond1, bond2)
+
+      sticks.push({
+        atomA: atomIndex,
+        atomB: bondedAtomIndex,
+        meshes: [bond1, bond2],
+      });
+
+    });
+  });
 
   for (var j = 0; j < atomBodies.length; j++) {
     if (atomNames[j] === 'CA') {
