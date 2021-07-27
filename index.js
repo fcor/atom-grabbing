@@ -340,7 +340,7 @@ function updateMeshPositions() {
     quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec);
     bond.meshes[0].position.set(0, 0, 0);
     bond.meshes[0].rotation.set(0, 0, 0);
-    bond.meshes[0].scale.set(0, h, 0);
+    bond.meshes[0].geometry.height = h;
     bond.meshes[0].translateOnAxis(0, h / 2, 0);
     bond.meshes[0].applyQuaternion(quaternion);
     bond.meshes[0].position.set(tmpVector2.x, tmpVector2.y, tmpVector2.z);
