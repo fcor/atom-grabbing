@@ -43,7 +43,7 @@ const sulfurMaterial = new THREE.MeshLambertMaterial({
   color: 0xfdc12a,
 });
 
-const atomGeometry = new THREE.SphereGeometry(atomRadius, 32, 32);
+const atomGeometry = new THREE.SphereBufferGeometry(atomRadius, 16, 16);
 const sphereShape = new CANNON.Sphere(atomRadius);
 
 let controls;
@@ -112,7 +112,7 @@ function init() {
   light.shadow.camera.bottom = -2;
   light.shadow.camera.right = 2;
   light.shadow.camera.left = -2;
-  light.shadow.mapSize.set(4096, 4096);
+  light.shadow.mapSize.set(1024, 1024);
   scene.add(light);
 
   // Renderer
@@ -206,7 +206,7 @@ function cylindricalSegment(A, B, radius, material) {
   vec.normalize();
   var quaternion = new THREE.Quaternion();
   quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec);
-  var geometry = new THREE.CylinderBufferGeometry(radius, radius, h, 32);
+  var geometry = new THREE.CylinderBufferGeometry(radius, radius, h, 16);
   geometry.translate(0, h / 2, 0);
   var cylinder = new THREE.Mesh(geometry, material);
   cylinder.applyQuaternion(quaternion);
@@ -284,9 +284,9 @@ function onPinchStart(event) {
 
 function updateMeshPositions() {
   for (let i = 0; i !== meshes.length; i++) {
-    // bodies[i].velocity.x = bodies[i].velocity.x / 1.05;
-    // bodies[i].velocity.y = bodies[i].velocity.y / 1.05;
-    // bodies[i].velocity.z = bodies[i].velocity.z / 1.05;
+    bodies[i].velocity.x = bodies[i].velocity.x / 1.05;
+    bodies[i].velocity.y = bodies[i].velocity.y / 1.05;
+    bodies[i].velocity.z = bodies[i].velocity.z / 1.05;
 
     if (meshes[i] === grabbedMesh) {
       meshes[i].getWorldPosition(tmpVector1);
