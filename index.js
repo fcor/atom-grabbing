@@ -449,24 +449,24 @@ function buildMolecule(pdb) {
       );
 
       const bond1 = cylindricalSegment(
-        point2,
+        point3,
         point1,
         stickRadius,
-        atoms[atomIndex].material.clone()
+        carbonMaterial
       );
-      const bond2 = cylindricalSegment(
-        point2,
-        point3,
-        stickRadius,
-        atoms[bondedAtomIndex].material.clone()
-      );
+      // const bond2 = cylindricalSegment(
+      //   point2,
+      //   point3,
+      //   stickRadius,
+      //   atoms[bondedAtomIndex].material.clone()
+      // );
 
-      // scene.add(bond1, bond2)
+      scene.add(bond1)
 
       sticks.push({
         atomA: atomIndex,
         atomB: bondedAtomIndex,
-        meshes: [bond1, bond2],
+        meshes: [bond1],
       });
 
     });
