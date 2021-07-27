@@ -461,7 +461,7 @@ function buildMolecule(pdb) {
         atoms[bondedAtomIndex].material.clone()
       );
 
-      scene.add(bond1, bond2)
+      // scene.add(bond1, bond2)
 
       sticks.push({
         atomA: atomIndex,
