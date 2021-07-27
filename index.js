@@ -303,60 +303,60 @@ function updateMeshPositions() {
     }
   }
 
-  sticks.forEach(function (bond) {
-    var B = new THREE.Vector3(
-      atoms[bond.atomA].position.x,
-      atoms[bond.atomA].position.y,
-      atoms[bond.atomA].position.z
-    );
+  // sticks.forEach(function (bond) {
+  //   var B = new THREE.Vector3(
+  //     atoms[bond.atomA].position.x,
+  //     atoms[bond.atomA].position.y,
+  //     atoms[bond.atomA].position.z
+  //   );
 
-    var A = new THREE.Vector3(
-      atoms[bond.atomA].position.x / 2 +
-        atoms[bond.atomB].position.x / 2,
-      atoms[bond.atomA].position.y / 2 +
-        atoms[bond.atomB].position.y / 2,
-      atoms[bond.atomA].position.z / 2 +
-        atoms[bond.atomB].position.z / 2
-    );
+  //   var A = new THREE.Vector3(
+  //     atoms[bond.atomA].position.x / 2 +
+  //       atoms[bond.atomB].position.x / 2,
+  //     atoms[bond.atomA].position.y / 2 +
+  //       atoms[bond.atomB].position.y / 2,
+  //     atoms[bond.atomA].position.z / 2 +
+  //       atoms[bond.atomB].position.z / 2
+  //   );
 
-    var C = new THREE.Vector3(
-      atoms[bond.atomA].position.x / 2 +
-        atoms[bond.atomB].position.x / 2,
-      atoms[bond.atomA].position.y / 2 +
-        atoms[bond.atomB].position.y / 2,
-      atoms[bond.atomA].position.z / 2 +
-        atoms[bond.atomB].position.z / 2
-    );
-    var D = new THREE.Vector3(
-      atoms[bond.atomB].position.x,
-      atoms[bond.atomB].position.y,
-      atoms[bond.atomB].position.z
-    );
+  //   var C = new THREE.Vector3(
+  //     atoms[bond.atomA].position.x / 2 +
+  //       atoms[bond.atomB].position.x / 2,
+  //     atoms[bond.atomA].position.y / 2 +
+  //       atoms[bond.atomB].position.y / 2,
+  //     atoms[bond.atomA].position.z / 2 +
+  //       atoms[bond.atomB].position.z / 2
+  //   );
+  //   var D = new THREE.Vector3(
+  //     atoms[bond.atomB].position.x,
+  //     atoms[bond.atomB].position.y,
+  //     atoms[bond.atomB].position.z
+  //   );
 
-    var vec = B.clone();
-    vec.sub(A);
-    var h = vec.length();
-    vec.normalize();
-    var quaternion = new THREE.Quaternion();
-    quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec);
-    bond.meshes[0].position.set(0, 0, 0);
-    bond.meshes[0].rotation.set(0, 0, 0);
-    bond.meshes[0].translateOnAxis(0, h / 2, 0);
-    bond.meshes[0].applyQuaternion(quaternion);
-    bond.meshes[0].position.set(A.x, A.y, A.z);
+  //   var vec = B.clone();
+  //   vec.sub(A);
+  //   var h = vec.length();
+  //   vec.normalize();
+  //   var quaternion = new THREE.Quaternion();
+  //   quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec);
+  //   bond.meshes[0].position.set(0, 0, 0);
+  //   bond.meshes[0].rotation.set(0, 0, 0);
+  //   bond.meshes[0].translateOnAxis(0, h / 2, 0);
+  //   bond.meshes[0].applyQuaternion(quaternion);
+  //   bond.meshes[0].position.set(A.x, A.y, A.z);
 
-    var vec2 = D.clone();
-    vec2.sub(C);
-    var h2 = vec.length();
-    vec2.normalize();
-    var quaternion2 = new THREE.Quaternion();
-    quaternion2.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec2);
-    bond.meshes[1].position.set(0, 0, 0);
-    bond.meshes[1].rotation.set(0, 0, 0);
-    bond.meshes[1].translateOnAxis(0, h2 / 2, 0);
-    bond.meshes[1].applyQuaternion(quaternion2);
-    bond.meshes[1].position.set(C.x, C.y, C.z);
-  });
+  //   var vec2 = D.clone();
+  //   vec2.sub(C);
+  //   var h2 = vec.length();
+  //   vec2.normalize();
+  //   var quaternion2 = new THREE.Quaternion();
+  //   quaternion2.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec2);
+  //   bond.meshes[1].position.set(0, 0, 0);
+  //   bond.meshes[1].rotation.set(0, 0, 0);
+  //   bond.meshes[1].translateOnAxis(0, h2 / 2, 0);
+  //   bond.meshes[1].applyQuaternion(quaternion2);
+  //   bond.meshes[1].position.set(C.x, C.y, C.z);
+  // });
 }
 
 function buildMolecule(pdb) {
