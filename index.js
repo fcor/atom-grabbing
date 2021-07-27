@@ -300,6 +300,9 @@ function updateMeshPositions() {
   }
 
   sticks.forEach(function (bond) {
+    atoms[bond.atomA].getWorldPosition(tmpVector1);
+    atoms[bond.atomB].getWorldPosition(tmpVector2);
+
     var B = new THREE.Vector3(
       atoms[bond.atomA].position.x,
       atoms[bond.atomA].position.y,
@@ -329,8 +332,8 @@ function updateMeshPositions() {
       atoms[bond.atomB].position.z
     );
 
-    var vec = B.clone();
-    vec.sub(D);
+    var vec = tmpVector1.clone();
+    vec.sub(tmpVector2);
     var h = vec.length();
     vec.normalize();
     var quaternion = new THREE.Quaternion();
@@ -339,7 +342,7 @@ function updateMeshPositions() {
     bond.meshes[0].rotation.set(0, 0, 0);
     bond.meshes[0].translateOnAxis(0, h / 2, 0);
     bond.meshes[0].applyQuaternion(quaternion);
-    bond.meshes[0].position.set(D.x, D.y, D.z);
+    bond.meshes[0].position.set(tmpVector2.x, tmpVector2.y, tmpVector2.z);
 
     // var vec2 = D.clone();
     // vec2.sub(C);
