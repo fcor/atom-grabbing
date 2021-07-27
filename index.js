@@ -385,7 +385,6 @@ function buildMolecule(pdb) {
       }
 
       const atom = new THREE.Mesh(atomGeometry, atomMaterial);
-      atom.castShadow = true;
       atom.position.set(
         parseFloat(lineas[i].substring(30, 38)),
         parseFloat(lineas[i].substring(38, 46)),
