@@ -29,20 +29,20 @@ const translation = new THREE.Vector3(-1.1, 0.8, -.5);
 const tmpVector1 = new THREE.Vector3();
 const tmpVector2 = new THREE.Vector3();
 const tmpQuatertnion = new THREE.Quaternion();
-var dummy = new THREE.Object3D();
-const carbonMaterial = new THREE.MeshPhongMaterial({
+
+const carbonMaterial = new THREE.MeshLambertMaterial({
   color: 0x555555,
   flatShading: true,
 });
-const oxygenMaterial = new THREE.MeshPhongMaterial({
+const oxygenMaterial = new THREE.MeshLambertMaterial({
   color: 0xff0000,
   flatShading: true,
 });
-const nitrogenMaterial = new THREE.MeshPhongMaterial({
+const nitrogenMaterial = new THREE.MeshLambertMaterial({
   color: 0x0000ff,
   flatShading: true,
 });
-const sulfurMaterial = new THREE.MeshPhongMaterial({
+const sulfurMaterial = new THREE.MeshLambertMaterial({
   color: 0xfdc12a,
   flatShading: true,
 });
@@ -90,7 +90,7 @@ function init() {
 
   // Floor
   const floorGeometry = new THREE.PlaneGeometry(4, 4);
-  const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x156289 });
+  const floorMaterial = new THREE.MeshLambertMaterial({ color: 0x156289 });
   const floor = new THREE.Mesh(floorGeometry, floorMaterial);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
