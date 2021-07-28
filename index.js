@@ -264,7 +264,7 @@ function onPinchEnd(event) {
     object.material.emissive.b = 0;
     scene.attach(object);
     controller.userData.selected = undefined;
-    const index = grabbedMeshes.indexOf(object)
+    const index = grabbedMeshes.indexOf(object);
     grabbedMeshes.splice(index, 1);
     grabbing = false;
   }
@@ -278,7 +278,7 @@ function onPinchStart(event) {
     grabbing = true;
     indexTip.attach(object);
     controller.userData.selected = object;
-    grabbedMeshes.push[object];
+    grabbedMeshes.push(object);
     console.log("Selected", object);
   }
 }
@@ -289,7 +289,13 @@ function updateMeshPositions() {
     bodies[i].velocity.y = bodies[i].velocity.y / 1.01;
     bodies[i].velocity.z = bodies[i].velocity.z / 1.01;
 
-    if (meshes[i] === grabbedMeshes[0] || meshes[i] === grabbedMeshes[1]) {
+    const thisMeshId = meshes[i].id;
+    const isGrabbed  = grabbedMeshes.some((grabbedMesh) => {
+      return thisMeshId === grabbedMesh.id;
+    })
+
+    if (isGrabbed) {
+      console.log("hey")
       meshes[i].getWorldPosition(tmpVector1);
       meshes[i].getWorldQuaternion(tmpQuatertnion);
       bodies[i].position.copy(tmpVector1);
