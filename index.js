@@ -55,7 +55,7 @@ const atomBodies = [];
 const sticks = [];
 const bodies = [];
 const meshes = [];
-let grabbedMesh;
+let grabbedMeshes = [];
 
 init();
 animate();
@@ -264,7 +264,8 @@ function onPinchEnd(event) {
     object.material.emissive.b = 0;
     scene.attach(object);
     controller.userData.selected = undefined;
-    grabbedMesh = undefined;
+    const index = grabbedMeshes.indexOf(object)
+    grabbedMeshes.splice(index, 1);
     grabbing = false;
   }
 }
@@ -277,7 +278,7 @@ function onPinchStart(event) {
     grabbing = true;
     indexTip.attach(object);
     controller.userData.selected = object;
-    grabbedMesh = object;
+    grabbedMeshes.push[object];
     console.log("Selected", object);
   }
 }
@@ -288,7 +289,7 @@ function updateMeshPositions() {
     bodies[i].velocity.y = bodies[i].velocity.y / 1.01;
     bodies[i].velocity.z = bodies[i].velocity.z / 1.01;
 
-    if (meshes[i] === grabbedMesh) {
+    if (meshes[i] === grabbedMeshes[0] || meshes[i] === grabbedMeshes[1]) {
       meshes[i].getWorldPosition(tmpVector1);
       meshes[i].getWorldQuaternion(tmpQuatertnion);
       bodies[i].position.copy(tmpVector1);
@@ -526,7 +527,6 @@ function buildMolecule(pdb) {
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7]));
             break;
           case 'PHE':
-            console.log(j)
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
