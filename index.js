@@ -191,7 +191,7 @@ function collideObject(indexTip) {
     const distance = indexTip
       .getWorldPosition(tmpVector1)
       .distanceTo(sphere.getWorldPosition(tmpVector2));
-    if (distance < sphere.geometry.boundingSphere.radius * sphere.scale.x) {
+    if (distance < sphere.geometry.boundingSphere.radius * sphere.scale.x*1.5) {
       return sphere;
     }
   }
