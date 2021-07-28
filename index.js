@@ -284,9 +284,9 @@ function onPinchStart(event) {
 
 function updateMeshPositions() {
   for (let i = 0; i !== meshes.length; i++) {
-    bodies[i].velocity.x = bodies[i].velocity.x / 1.05;
-    bodies[i].velocity.y = bodies[i].velocity.y / 1.05;
-    bodies[i].velocity.z = bodies[i].velocity.z / 1.05;
+    bodies[i].velocity.x = bodies[i].velocity.x / 1.01;
+    bodies[i].velocity.y = bodies[i].velocity.y / 1.01;
+    bodies[i].velocity.z = bodies[i].velocity.z / 1.01;
 
     if (meshes[i] === grabbedMesh) {
       meshes[i].getWorldPosition(tmpVector1);
@@ -496,6 +496,7 @@ function buildMolecule(pdb) {
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+            break;
           case 'ASN':
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
@@ -503,6 +504,7 @@ function buildMolecule(pdb) {
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
+            break;
           case 'GLU':
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
@@ -512,6 +514,7 @@ function buildMolecule(pdb) {
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7]));
+            break;
           case 'GLN':
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
@@ -521,7 +524,9 @@ function buildMolecule(pdb) {
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7]));
+            break;
           case 'PHE':
+            console.log(j)
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4]));
             world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5]));
