@@ -21,8 +21,8 @@ let atomNames = [];
 
 const timestep = 1 / 60;
 
-const atomRadius = 0.015;
-const stickRadius = 0.005;
+const atomRadius = 0.02;
+const stickRadius = 0.007;
 const scale = .04;
 const translation = new THREE.Vector3(-1.1, 0.8, -.5);
 
@@ -44,7 +44,7 @@ const sulfurMaterial = new THREE.MeshLambertMaterial({
 });
 
 const atomGeometry = new THREE.SphereBufferGeometry(atomRadius, 16, 16);
-const sphereShape = new CANNON.Sphere(atomRadius);
+const sphereShape = new CANNON.Sphere(atomRadius*1.3);
 
 let controls;
 
