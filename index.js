@@ -19,7 +19,7 @@ let resids = [];
 let restypes = [];
 let atomNames = [];
 
-const timestep = 1 / 60;
+const timestep = 1 / 8;
 
 const atomRadius = 0.02;
 const stickRadius = 0.007;
