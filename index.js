@@ -24,7 +24,7 @@ const timestep = 1 / 60;
 const atomRadius = 0.02;
 const stickRadius = 0.007;
 const scale = .04;
-const translation = new THREE.Vector3(-1.1, 0.8, -.5);
+const translation = new THREE.Vector3(-0.6, 1, -.5);
 
 const tmpVector1 = new THREE.Vector3();
 const tmpVector2 = new THREE.Vector3();
@@ -41,6 +41,9 @@ const nitrogenMaterial = new THREE.MeshLambertMaterial({
 });
 const sulfurMaterial = new THREE.MeshLambertMaterial({
   color: 0xfdc12a,
+});
+const hydrogenMaterial = new THREE.MeshLambertMaterial({
+  color: 0xfffffff,
 });
 
 const atomGeometry = new THREE.SphereBufferGeometry(atomRadius, 16, 16);
@@ -191,7 +194,7 @@ function collideObject(indexTip) {
     const distance = indexTip
       .getWorldPosition(tmpVector1)
       .distanceTo(sphere.getWorldPosition(tmpVector2));
-    if (distance < sphere.geometry.boundingSphere.radius * sphere.scale.x*1.5) {
+    if (distance < sphere.geometry.boundingSphere.radius * sphere.scale.x*2) {
       return sphere;
     }
   }
@@ -352,6 +355,9 @@ function buildMolecule(pdb) {
       }
       if (lineas[i].substring(77, 78).trim() === "S") {
         atomMaterial = sulfurMaterial;
+      }
+      if (lineas[i].substring(77, 78).trim() === "H") {
+        atomMaterial = hydrogenMaterial;
       }
 
       const atom = new THREE.Mesh(atomGeometry, atomMaterial);
