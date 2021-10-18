@@ -32,6 +32,12 @@ const tmpQuatertnion = new THREE.Quaternion();
 
 const material = new THREE.MeshLambertMaterial();
 const atomGeometry = new THREE.SphereBufferGeometry(atomRadius, 16, 16);
+const cylinderGeometry = new THREE.CylinderBufferGeometry(
+  stickRadius,
+  stickRadius,
+  0.05,
+  16
+);
 const sphereShape = new CANNON.Sphere(atomRadius * 1.3);
 
 let controls;
@@ -52,7 +58,9 @@ let molecule = {
   atomElements: [],
   atomPositions: [],
   atomColors: [],
+  sticks: [],
   atoms: null,
+  bonds: null,
 };
 
 init();
@@ -163,8 +171,6 @@ function init() {
 
   buildMolecule(pdb);
 
-  console.log(molecule);
-
   window.addEventListener("resize", onWindowResize);
 }
 
@@ -225,20 +231,24 @@ function radiiSum(elementA, elementB) {
 function getBonds(atoms, indexes) {
   let bonds = {};
 
-  for (let i = 0; i < atoms.length; i++) {
+  for (let i = 0; i < atoms.count; i++) {
     const currentAtomI = `atom${i + 1}`;
 
     let distsqr;
     let bondedAtoms = [];
 
-    for (let j = i + 1; j < atoms.length; j++) {
+    for (let j = i + 1; j < atoms.count; j++) {
       const currentAtomJ = `atom${j + 1}`;
 
-      tmpVector1.copy(atoms[i].position);
+      const atomMatrix = new THREE.Matrix4();
+      atoms.getMatrixAt(i, atomMatrix);
+      tmpVector1.setFromMatrixPosition(atomMatrix);
       tmpVector1.sub(translation);
       tmpVector1.multiplyScalar(1 / scale);
 
-      tmpVector2.copy(atoms[j].position);
+      const atomMatrix2 = new THREE.Matrix4();
+      atoms.getMatrixAt(j, atomMatrix2);
+      tmpVector2.setFromMatrixPosition(atomMatrix2);
       tmpVector2.sub(translation);
       tmpVector2.multiplyScalar(1 / scale);
 
@@ -401,9 +411,9 @@ function buildMolecule(pdb) {
   );
   molecule.atoms.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
-  const matrix = new THREE.Matrix4();
-
+  
   for (let i = 0; i < molecule.atoms.count; i++) {
+    const matrix = new THREE.Matrix4();
     matrix.setPosition(molecule.atomPositions[i]);
     molecule.atoms.setMatrixAt(i, matrix);
 
@@ -432,57 +442,97 @@ function buildMolecule(pdb) {
 
   scene.add(molecule.atoms);
 
-  // let atomIndexes = [];
+  let atomIndexes = [];
 
-  // atomNames.forEach((atom, index) => {
-  //   for (let j = 0; j < elementNames.length; j++) {
-  //     if (atom.substring(0, 1) === elementNames[j]) {
-  //       atomIndexes[index] = j;
-  //       break;
-  //     }
-  //   }
-  // });
+  molecule.atomNames.forEach((atom, index) => {
+    for (let j = 0; j < elementNames.length; j++) {
+      if (atom.substring(0, 1) === elementNames[j]) {
+        atomIndexes[index] = j;
+        break;
+      }
+    }
+  });
 
-  // const bonds = getBonds(atoms, atomIndexes);
+  const bonds = getBonds(molecule.atoms, atomIndexes);
 
-  // const bondKeys = Object.keys(bonds);
-  // bondKeys.forEach(function (atom, atomIndex) {
-  //   //point1 is the first atom (i), point3 is the second atom (j)
-  //   //point2 is at the center in-between atoms i and j
-  //   //then the first half of the bond is from sphere 1 to 2 and the
-  //   //second half of the bond is from point2 to point3
-  //   const point1 = new THREE.Vector3(
-  //     atoms[atomIndex].position.x,
-  //     atoms[atomIndex].position.y,
-  //     atoms[atomIndex].position.z
-  //   );
+  const bondKeys = Object.keys(bonds);
+  bondKeys.forEach(function (atom, atomIndex) {
+    //point1 is the first atom (i), point3 is the second atom (j)
+    //point2 is at the center in-between atoms i and j
+    //then the first half of the bond is from sphere 1 to 2 and the
+    //second half of the bond is from point2 to point3
 
-  //   bonds[atom].forEach(function (bondedAtom) {
-  //     const bondedAtomIndex = bondKeys.indexOf(bondedAtom);
+    // const point1 = new THREE.Vector3();
+    // const atomMatrix = new THREE.Matrix4();
+    // molecule.atoms.getMatrixAt(atomIndex, atomMatrix);
+    // point1.setFromMatrixPosition(atomMatrix)
 
-  //     const point3 = new THREE.Vector3(
-  //       atoms[bondedAtomIndex].position.x,
-  //       atoms[bondedAtomIndex].position.y,
-  //       atoms[bondedAtomIndex].position.z
-  //     );
+    bonds[atom].forEach(function (bondedAtom) {
+      const bondedAtomIndex = bondKeys.indexOf(bondedAtom);
 
-  //     const bond1 = cylindricalSegment(
-  //       point3,
-  //       point1,
-  //       stickRadius,
-  //       carbonMaterial
-  //     );
+      // const point3 = new THREE.Vector3();
+      // const atomMatrix2 = new THREE.Matrix4();
+      // molecule.atoms.getMatrixAt(bondedAtomIndex, atomMatrix2);
+      // point3.setFromMatrixPosition(atomMatrix2)
 
-  //     scene.add(bond1)
+      // const bond1 = cylindricalSegment(
+      //   point3,
+      //   point1,
+      //   stickRadius,
+      //   material
+      // );
 
-  //     sticks.push({
-  //       atomA: atomIndex,
-  //       atomB: bondedAtomIndex,
-  //       meshes: [bond1],
-  //     });
+      // scene.add(bond1)
 
-  //   });
-  // });
+      molecule.sticks.push({
+        atomA: atomIndex,
+        atomB: bondedAtomIndex,
+      });
+    });
+  });
+
+  molecule.bonds = new THREE.InstancedMesh(
+    cylinderGeometry,
+    material,
+    molecule.sticks.length
+  );
+  molecule.bonds.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  
+  for (let i = 0; i < molecule.bonds.count; i++) {
+    const matrix = new THREE.Matrix4();
+
+    const atom1Index = molecule.sticks[i].atomA;
+    const atom2Index = molecule.sticks[i].atomB;
+
+    const point1 = new THREE.Vector3();
+    const atomMatrix = new THREE.Matrix4();
+    molecule.atoms.getMatrixAt(atom1Index, atomMatrix);
+    point1.setFromMatrixPosition(atomMatrix);
+
+    const point3 = new THREE.Vector3();
+    const atomMatrix2 = new THREE.Matrix4();
+    molecule.atoms.getMatrixAt(atom2Index, atomMatrix2);
+    point3.setFromMatrixPosition(atomMatrix2);
+
+    const vec = point1.clone();
+    vec.sub(point3);
+    const h = vec.length();
+    vec.normalize();
+    const quaternion = new THREE.Quaternion();
+    quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec);
+
+    const stickPosition = new THREE.Vector3();
+    stickPosition.lerpVectors(point3, point1, 0.5);
+
+    matrix.makeRotationFromQuaternion(quaternion);
+    matrix.setPosition(stickPosition);
+    // matrix.makeTranslation(0, h/2, 0);
+
+    molecule.bonds.setMatrixAt(i, matrix);
+  }
+
+  scene.add(molecule.bonds);
 
   // for (var j = 0; j < atomBodies.length; j++) {
   //   if (atomNames[j] === 'CA') {
