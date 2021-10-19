@@ -14,11 +14,6 @@ let controller1, controller2;
 let controllerGrip1, controllerGrip2;
 let myDebugger;
 
-let chains = [];
-let resids = [];
-let restypes = [];
-let atomNames = [];
-
 const timestep = 1 / 60;
 
 const atomRadius = 0.02;
@@ -35,7 +30,7 @@ const atomGeometry = new THREE.SphereBufferGeometry(atomRadius, 16, 16);
 const cylinderGeometry = new THREE.CylinderBufferGeometry(
   stickRadius,
   stickRadius,
-  0.05,
+  0.06,
   16
 );
 const sphereShape = new CANNON.Sphere(atomRadius * 1.3);
@@ -189,8 +184,8 @@ function render() {
   // myDebugger.update();
   controls.update();
   renderer.render(scene, camera);
-  // world.step(timestep);
-  // updateMeshPositions();
+  world.step(timestep);
+  updateMeshPositions();
 }
 
 function collideObject(indexTip) {
@@ -204,22 +199,6 @@ function collideObject(indexTip) {
     }
   }
   return null;
-}
-
-// This function creates a 3D cylinder from A to B
-function cylindricalSegment(A, B, radius, material) {
-  var vec = B.clone();
-  vec.sub(A);
-  var h = vec.length();
-  vec.normalize();
-  var quaternion = new THREE.Quaternion();
-  quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec);
-  var geometry = new THREE.CylinderBufferGeometry(radius, radius, h, 16);
-  geometry.translate(0, h / 2, 0);
-  var cylinder = new THREE.Mesh(geometry, material);
-  cylinder.applyQuaternion(quaternion);
-  cylinder.position.set(A.x, A.y, A.z);
-  return cylinder;
 }
 
 // This function returns 1.2 * (A + B)^2
@@ -299,49 +278,56 @@ function onPinchStart(event) {
 }
 
 function updateMeshPositions() {
-  for (let i = 0; i !== meshes.length; i++) {
-    bodies[i].velocity.x = bodies[i].velocity.x / 1.01;
-    bodies[i].velocity.y = bodies[i].velocity.y / 1.01;
-    bodies[i].velocity.z = bodies[i].velocity.z / 1.01;
+  for (let i = 0; i !== molecule.atoms.count; i++) {
+    atomBodies[i].velocity.x = atomBodies[i].velocity.x / 1.01;
+    atomBodies[i].velocity.y = atomBodies[i].velocity.y / 1.01;
+    atomBodies[i].velocity.z = atomBodies[i].velocity.z / 1.01;
 
-    const thisMeshId = meshes[i].id;
-    const isGrabbed = grabbedMeshes.some((grabbedMesh) => {
-      return thisMeshId === grabbedMesh.id;
-    });
+    // const thisMeshId = meshes[i].id;
+    // const isGrabbed = grabbedMeshes.some((grabbedMesh) => {
+    //   return thisMeshId === grabbedMesh.id;
+    // });
 
-    if (isGrabbed) {
-      console.log("hey");
-      meshes[i].getWorldPosition(tmpVector1);
-      meshes[i].getWorldQuaternion(tmpQuatertnion);
-      bodies[i].position.copy(tmpVector1);
-      bodies[i].quaternion.copy(tmpQuatertnion);
-    } else {
-      meshes[i].position.copy(bodies[i].position);
-      meshes[i].quaternion.copy(bodies[i].quaternion);
-    }
+    // if (isGrabbed) {
+    //   console.log("hey");
+    //   meshes[i].getWorldPosition(tmpVector1);
+    //   meshes[i].getWorldQuaternion(tmpQuatertnion);
+    //   bodies[i].position.copy(tmpVector1);
+    //   bodies[i].quaternion.copy(tmpQuatertnion);
+    // } else {
+      const matrix = new THREE.Matrix4();
+      matrix.setPosition(atomBodies[i].position.x, atomBodies[i].position.y, atomBodies[i].position.z);
+      molecule.atoms.setMatrixAt(i, matrix);
+    // }
   }
+
+  molecule.atoms.instanceMatrix.needsUpdate = true;
+
+  updateBonds();
+
+  molecule.bonds.instanceMatrix.needsUpdate = true;
 
   // if (grabbing) {
   //   const grabbedAtomIndex = atoms.indexOf(grabbedMesh);
   // }
 
-  sticks.forEach(function (bond) {
-    atoms[bond.atomA].getWorldPosition(tmpVector1);
-    atoms[bond.atomB].getWorldPosition(tmpVector2);
+  // sticks.forEach(function (bond) {
+  //   atoms[bond.atomA].getWorldPosition(tmpVector1);
+  //   atoms[bond.atomB].getWorldPosition(tmpVector2);
 
-    const vec = tmpVector1.clone();
-    vec.sub(tmpVector2);
-    const h = vec.length();
-    vec.normalize();
-    const quaternion = new THREE.Quaternion();
-    quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec);
-    bond.meshes[0].position.set(0, 0, 0);
-    bond.meshes[0].rotation.set(0, 0, 0);
-    // bond.meshes[0].scale.y += 0.01;
-    bond.meshes[0].translateOnAxis(0, h / 2, 0);
-    bond.meshes[0].applyQuaternion(quaternion);
-    bond.meshes[0].position.set(tmpVector2.x, tmpVector2.y, tmpVector2.z);
-  });
+  //   const vec = tmpVector1.clone();
+  //   vec.sub(tmpVector2);
+  //   const h = vec.length();
+  //   vec.normalize();
+  //   const quaternion = new THREE.Quaternion();
+  //   quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec);
+  //   bond.meshes[0].position.set(0, 0, 0);
+  //   bond.meshes[0].rotation.set(0, 0, 0);
+  //   // bond.meshes[0].scale.y += 0.01;
+  //   bond.meshes[0].translateOnAxis(0, h / 2, 0);
+  //   bond.meshes[0].applyQuaternion(quaternion);
+  //   bond.meshes[0].position.set(tmpVector2.x, tmpVector2.y, tmpVector2.z);
+  // });
 }
 
 function buildMolecule(pdb) {
@@ -438,6 +424,16 @@ function buildMolecule(pdb) {
     molecule.atomColors.push(color);
 
     molecule.atoms.setColorAt(i, color);
+
+    // Physics - Atom Bodies
+    const sphereBody = new CANNON.Body({
+      mass: 1,
+      shape: sphereShape,
+    });
+    sphereBody.position.copy(molecule.atomPositions[i]);
+    bodies.push(sphereBody);
+    atomBodies.push(sphereBody);
+    world.addBody(sphereBody);
   }
 
   scene.add(molecule.atoms);
@@ -497,8 +493,296 @@ function buildMolecule(pdb) {
     molecule.sticks.length
   );
   molecule.bonds.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  updateBonds()
+  scene.add(molecule.bonds);
 
-  
+  for (var j = 0; j < atomBodies.length; j++) {
+    if (molecule.atomNames[j] === 'CA') {
+      for (var jj = j+1; jj < atomBodies.length; jj++) {
+        if (molecule.atomNames[jj] === 'CA' && molecule.resids[jj]-molecule.resids[j]==1) {
+          //CA - CA+1
+          var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[jj].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[jj].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[jj].position.z,2) )
+          var c = new CANNON.DistanceConstraint(atomBodies[jj], atomBodies[j], distance, 1e6);
+          world.addConstraint(c);
+          //C-N+1
+          var distance = Math.sqrt( Math.pow(atomBodies[j+1].position.x - atomBodies[jj-1].position.x,2) + Math.pow(atomBodies[j+1].position.y - atomBodies[jj-1].position.y,2) + Math.pow(atomBodies[j+1].position.z - atomBodies[jj-1].position.z,2) )
+          var c = new CANNON.DistanceConstraint(atomBodies[j+1], atomBodies[jj-1], distance, 1e6);
+          world.addConstraint(c);
+          //O-N+1
+          var distance = Math.sqrt( Math.pow(atomBodies[j+2].position.x - atomBodies[jj-1].position.x,2) + Math.pow(atomBodies[j+2].position.y - atomBodies[jj-1].position.y,2) + Math.pow(atomBodies[j+2].position.z - atomBodies[jj-1].position.z,2) )
+          var c = new CANNON.DistanceConstraint(atomBodies[j+2], atomBodies[jj-1], distance, 1e6);
+          world.addConstraint(c);
+          break
+        }
+      }
+        //CA-N
+        var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[j-1].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[j-1].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[j-1].position.z,2) )
+        var c = new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j-1], distance, 1e6);
+        world.addConstraint(c);
+        //CA-C
+        var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[j+1].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[j+1].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[j+1].position.z,2) )
+        var c = new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+1], distance, 1e6);
+        world.addConstraint(c);
+        //CA-O
+        var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[j+2].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[j+2].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[j+2].position.z,2) )
+        var c = new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+2], distance, 1e6);
+        world.addConstraint(c);
+        //C-O
+        var distance = Math.sqrt( Math.pow(atomBodies[j+1].position.x - atomBodies[j+2].position.x,2) + Math.pow(atomBodies[j+1].position.y - atomBodies[j+2].position.y,2) + Math.pow(atomBodies[j+1].position.z - atomBodies[j+2].position.z,2) )
+        var c = new CANNON.DistanceConstraint(atomBodies[j+1], atomBodies[j+2], distance, 1e6);
+        world.addConstraint(c);
+
+        //CA-CB
+        if (molecule.restypes[j] !== 'GLY') {
+          var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[j+3].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[j+3].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[j+3].position.z,2) )
+          var c = new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+3], distance, 1e6);
+          world.addConstraint(c);
+          var distance = Math.sqrt( Math.pow(atomBodies[j-1].position.x - atomBodies[j+3].position.x,2) + Math.pow(atomBodies[j-1].position.y - atomBodies[j+3].position.y,2) + Math.pow(atomBodies[j-1].position.z - atomBodies[j+3].position.z,2) )
+          var c = new CANNON.DistanceConstraint(atomBodies[j-1], atomBodies[j+3], distance, 1e6);
+          world.addConstraint(c);
+        }
+        switch(molecule.restypes[j]) {
+          case 'CYS':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            break;
+          case 'SER':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            break;
+          case 'THR':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            break;
+          case 'VAL':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            break;
+          case 'ASP':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
+            break;
+          case 'ASN':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
+            break;
+          case 'GLU':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
+            break;
+          case 'GLN':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
+            break;
+          case 'PHE':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+9], undefined, 1e6));
+            break;
+          case 'HIS':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8], undefined, 1e6));
+            break;
+          case 'ILE':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6], undefined, 1e6));
+            break;
+          case 'LEU':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6], undefined, 1e6));
+            break;
+          case 'LYS':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
+            break;
+          case 'MET':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
+            break;
+          case 'PRO':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j-1], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j-1], undefined, 1e6));
+            break;
+          case 'ARG':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+9], undefined, 1e6));
+            break;
+          case 'TRP':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+10], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+11], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+12], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+10], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+11], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+12], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+10], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+11], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+12], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+10], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+11], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+12], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+10], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+11], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+12], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+10], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+11], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+12], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+9], atomBodies[j+10], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+9], atomBodies[j+11], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+9], atomBodies[j+12], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+10], atomBodies[j+11], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+10], atomBodies[j+12], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+11], atomBodies[j+12], undefined, 1e6));
+            break;
+          case 'TYR':
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+10], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+10], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+10], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+10], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+10], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+9], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+10], undefined, 1e6));
+            world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+9], atomBodies[j+10], undefined, 1e6));
+            break;
+      }
+    }
+  }
+}
+
+function updateBonds() {
   for (let i = 0; i < molecule.bonds.count; i++) {
     const matrix = new THREE.Matrix4();
 
@@ -527,295 +811,7 @@ function buildMolecule(pdb) {
 
     matrix.makeRotationFromQuaternion(quaternion);
     matrix.setPosition(stickPosition);
-    // matrix.makeTranslation(0, h/2, 0);
 
     molecule.bonds.setMatrixAt(i, matrix);
   }
-
-  scene.add(molecule.bonds);
-
-  // for (var j = 0; j < atomBodies.length; j++) {
-  //   if (atomNames[j] === 'CA') {
-  //     for (var jj = j+1; jj < atomBodies.length; jj++) {
-  //       if (atomNames[jj] === 'CA' && resids[jj]-resids[j]==1) {
-  //         //CA - CA+1
-  //         var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[jj].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[jj].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[jj].position.z,2) )
-  //         var c = new CANNON.DistanceConstraint(atomBodies[jj], atomBodies[j], distance, 1e6);
-  //         world.addConstraint(c);
-  //         //C-N+1
-  //         var distance = Math.sqrt( Math.pow(atomBodies[j+1].position.x - atomBodies[jj-1].position.x,2) + Math.pow(atomBodies[j+1].position.y - atomBodies[jj-1].position.y,2) + Math.pow(atomBodies[j+1].position.z - atomBodies[jj-1].position.z,2) )
-  //         var c = new CANNON.DistanceConstraint(atomBodies[j+1], atomBodies[jj-1], distance, 1e6);
-  //         world.addConstraint(c);
-  //         //O-N+1
-  //         var distance = Math.sqrt( Math.pow(atomBodies[j+2].position.x - atomBodies[jj-1].position.x,2) + Math.pow(atomBodies[j+2].position.y - atomBodies[jj-1].position.y,2) + Math.pow(atomBodies[j+2].position.z - atomBodies[jj-1].position.z,2) )
-  //         var c = new CANNON.DistanceConstraint(atomBodies[j+2], atomBodies[jj-1], distance, 1e6);
-  //         world.addConstraint(c);
-  //         break
-  //       }
-  //     }
-  //       //CA-N
-  //       var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[j-1].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[j-1].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[j-1].position.z,2) )
-  //       var c = new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j-1], distance, 1e6);
-  //       world.addConstraint(c);
-  //       //CA-C
-  //       var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[j+1].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[j+1].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[j+1].position.z,2) )
-  //       var c = new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+1], distance, 1e6);
-  //       world.addConstraint(c);
-  //       //CA-O
-  //       var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[j+2].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[j+2].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[j+2].position.z,2) )
-  //       var c = new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+2], distance, 1e6);
-  //       world.addConstraint(c);
-  //       //C-O
-  //       var distance = Math.sqrt( Math.pow(atomBodies[j+1].position.x - atomBodies[j+2].position.x,2) + Math.pow(atomBodies[j+1].position.y - atomBodies[j+2].position.y,2) + Math.pow(atomBodies[j+1].position.z - atomBodies[j+2].position.z,2) )
-  //       var c = new CANNON.DistanceConstraint(atomBodies[j+1], atomBodies[j+2], distance, 1e6);
-  //       world.addConstraint(c);
-
-  //       //CA-CB
-  //       if (restypes[j] !== 'GLY') {
-  //         var distance = Math.sqrt( Math.pow(atomBodies[j].position.x - atomBodies[j+3].position.x,2) + Math.pow(atomBodies[j].position.y - atomBodies[j+3].position.y,2) + Math.pow(atomBodies[j].position.z - atomBodies[j+3].position.z,2) )
-  //         var c = new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+3], distance, 1e6);
-  //         world.addConstraint(c);
-  //         var distance = Math.sqrt( Math.pow(atomBodies[j-1].position.x - atomBodies[j+3].position.x,2) + Math.pow(atomBodies[j-1].position.y - atomBodies[j+3].position.y,2) + Math.pow(atomBodies[j-1].position.z - atomBodies[j+3].position.z,2) )
-  //         var c = new CANNON.DistanceConstraint(atomBodies[j-1], atomBodies[j+3], distance, 1e6);
-  //         world.addConstraint(c);
-  //       }
-  //       switch(restypes[j]) {
-  //         case 'CYS':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           break;
-  //         case 'SER':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           break;
-  //         case 'THR':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           break;
-  //         case 'VAL':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           break;
-  //         case 'ASP':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
-  //           break;
-  //         case 'ASN':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
-  //           break;
-  //         case 'GLU':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
-  //           break;
-  //         case 'GLN':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
-  //           break;
-  //         case 'PHE':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+9], undefined, 1e6));
-  //           break;
-  //         case 'HIS':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8], undefined, 1e6));
-  //           break;
-  //         case 'ILE':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6], undefined, 1e6));
-  //           break;
-  //         case 'LEU':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6], undefined, 1e6));
-  //           break;
-  //         case 'LYS':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
-  //           break;
-  //         case 'MET':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
-  //           break;
-  //         case 'PRO':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j-1], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j-1], undefined, 1e6));
-  //           break;
-  //         case 'ARG':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+9], undefined, 1e6));
-  //           break;
-  //         case 'TRP':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+10], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+11], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+12], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+10], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+11], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+12], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+10], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+11], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+12], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+10], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+11], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+12], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+10], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+11], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+12], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+10], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+11], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+12], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+9], atomBodies[j+10], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+9], atomBodies[j+11], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+9], atomBodies[j+12], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+10], atomBodies[j+11], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+10], atomBodies[j+12], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+11], atomBodies[j+12], undefined, 1e6));
-  //           break;
-  //         case 'TYR':
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+4], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+3], atomBodies[j+10], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+5], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+4], atomBodies[j+10], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+6], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+5], atomBodies[j+10], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+7], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+6], atomBodies[j+10], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+8], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+7], atomBodies[j+10], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+9], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+8], atomBodies[j+10], undefined, 1e6));
-  //           world.addConstraint(new CANNON.DistanceConstraint(atomBodies[j+9], atomBodies[j+10], undefined, 1e6));
-  //           break;
-  //     }
-  //   }
-  // }
 }
