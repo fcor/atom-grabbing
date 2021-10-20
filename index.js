@@ -198,7 +198,7 @@ function collideObject(indexTip) {
       .getWorldPosition(tmpVector1)
       .distanceTo(atomPos);
 
-    if (distance < 0.05) {
+    if (distance < 0.04) {
       return i;
     }
   }
@@ -257,15 +257,17 @@ function getBonds(atoms, indexes) {
 
 function onPinchEnd(event) {
   const controller = event.target;
-  // if (controller.userData.selected !== undefined) {
-  //   const object = controller.userData.selected;
-  //   object.material.emissive.b = 0;
-  //   scene.attach(object);
-  //   controller.userData.selected = undefined;
-  //   const index = grabbedMeshes.indexOf(object);
-  //   grabbedMeshes.splice(index, 1);
-  //   grabbing = false;
-  // }
+  if (controller.userData.selected !== undefined) {
+    const object = controller.userData.selected;
+
+    molecule.atoms.setColorAt(object, molecule.atomColors[object]);
+    molecule.atoms.instanceColor.needsUpdate = true;
+
+    controller.userData.selected = undefined;
+    const index = grabbedMeshes.indexOf(object);
+    grabbedMeshes.splice(index, 1);
+    grabbing = false;
+  }
 }
 
 function onPinchStart(event) {
@@ -276,10 +278,8 @@ function onPinchStart(event) {
     grabbing = true;
     molecule.atoms.setColorAt(object, new THREE.Color( 0xffffff ));
     molecule.atoms.instanceColor.needsUpdate = true;
-    // indexTip.attach(object);
-    // controller.userData.selected = object;
-    // grabbedMeshes.push(object);
-    // console.log("Selected", object);
+    controller.userData.selected = object;
+    grabbedMeshes.push(object);
   }
 }
 
