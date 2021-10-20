@@ -185,7 +185,6 @@ function render() {
   controls.update();
   renderer.render(scene, camera);
   world.step(timestep);
-  console.log(sphere.geometry.boundingSphere.radius * sphere.scale.x*2)
   updateMeshPositions();
 }
 
