@@ -185,6 +185,7 @@ function render() {
   controls.update();
   renderer.render(scene, camera);
   world.step(timestep);
+  console.log(sphere.geometry.boundingSphere.radius * sphere.scale.x*2)
   updateMeshPositions();
 }
 
@@ -197,7 +198,8 @@ function collideObject(indexTip) {
     const distance = indexTip
       .getWorldPosition(tmpVector1)
       .distanceTo(atomPos);
-    if (distance < 0.0016) {
+
+    if (distance < 0.05) {
       return i;
     }
   }
@@ -273,7 +275,7 @@ function onPinchStart(event) {
   const object = collideObject(indexTip);
   if (object) {
     grabbing = true;
-    molecule.atoms.setColorAt(12, new THREE.Color( 0xffffff ));
+    molecule.atoms.setColorAt(object, new THREE.Color( 0xffffff ));
     molecule.atoms.instanceColor.needsUpdate = true;
     // indexTip.attach(object);
     // controller.userData.selected = object;
