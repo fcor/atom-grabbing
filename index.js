@@ -146,8 +146,8 @@ function init() {
   scene.add(controllerGrip1);
 
   hand1 = renderer.xr.getHand(0);
-  // hand1.addEventListener("pinchstart", onPinchStart);
-  // hand1.addEventListener("pinchend", onPinchEnd);
+  hand1.addEventListener("pinchstart", onPinchStart);
+  hand1.addEventListener("pinchend", onPinchEnd);
   hand1.add(handModelFactory.createHandModel(hand1, "mesh"));
   scene.add(hand1);
 
@@ -159,8 +159,8 @@ function init() {
   scene.add(controllerGrip2);
 
   hand2 = renderer.xr.getHand(1);
-  // hand2.addEventListener("pinchstart", onPinchStart);
-  // hand2.addEventListener("pinchend", onPinchEnd);
+  hand2.addEventListener("pinchstart", onPinchStart);
+  hand2.addEventListener("pinchend", onPinchEnd);
   hand2.add(handModelFactory.createHandModel(hand2, "mesh"));
   scene.add(hand2);
 
@@ -189,13 +189,16 @@ function render() {
 }
 
 function collideObject(indexTip) {
-  for (let i = 0; i < atoms.length; i++) {
-    const sphere = atoms[i];
+  for (let i = 0; i < molecule.atoms.count; i++) {
+    const atomPos = new THREE.Vector3();
+    const atomMatrix = new THREE.Matrix4();
+    molecule.atoms.getMatrixAt(i, atomMatrix);
+    atomPos.setFromMatrixPosition(atomMatrix);
     const distance = indexTip
       .getWorldPosition(tmpVector1)
-      .distanceTo(sphere.getWorldPosition(tmpVector2));
-    if (distance < sphere.geometry.boundingSphere.radius * sphere.scale.x * 2) {
-      return sphere;
+      .distanceTo(atomPos);
+    if (distance < 0.0016) {
+      return i;
     }
   }
   return null;
@@ -253,15 +256,15 @@ function getBonds(atoms, indexes) {
 
 function onPinchEnd(event) {
   const controller = event.target;
-  if (controller.userData.selected !== undefined) {
-    const object = controller.userData.selected;
-    object.material.emissive.b = 0;
-    scene.attach(object);
-    controller.userData.selected = undefined;
-    const index = grabbedMeshes.indexOf(object);
-    grabbedMeshes.splice(index, 1);
-    grabbing = false;
-  }
+  // if (controller.userData.selected !== undefined) {
+  //   const object = controller.userData.selected;
+  //   object.material.emissive.b = 0;
+  //   scene.attach(object);
+  //   controller.userData.selected = undefined;
+  //   const index = grabbedMeshes.indexOf(object);
+  //   grabbedMeshes.splice(index, 1);
+  //   grabbing = false;
+  // }
 }
 
 function onPinchStart(event) {
@@ -270,10 +273,12 @@ function onPinchStart(event) {
   const object = collideObject(indexTip);
   if (object) {
     grabbing = true;
-    indexTip.attach(object);
-    controller.userData.selected = object;
-    grabbedMeshes.push(object);
-    console.log("Selected", object);
+    molecule.atoms.setColorAt(12, new THREE.Color( 0xffffff ));
+    molecule.atoms.instanceColor.needsUpdate = true;
+    // indexTip.attach(object);
+    // controller.userData.selected = object;
+    // grabbedMeshes.push(object);
+    // console.log("Selected", object);
   }
 }
 
