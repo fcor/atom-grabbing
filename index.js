@@ -45,6 +45,7 @@ const sticks = [];
 const bodies = [];
 const meshes = [];
 let grabbedMeshes = [];
+let grabbingControllers = [];
 
 let molecule = {
   resids: [],
@@ -259,13 +260,13 @@ function onPinchEnd(event) {
   const controller = event.target;
   if (controller.userData.selected !== undefined) {
     const object = controller.userData.selected;
-
-    molecule.atoms.setColorAt(object, molecule.atomColors[object]);
-    molecule.atoms.instanceColor.needsUpdate = true;
+    const id = controller.id;
 
     controller.userData.selected = undefined;
     const index = grabbedMeshes.indexOf(object);
+    const index2 = grabbingControllers.indexOf(id);
     grabbedMeshes.splice(index, 1);
+    grabbingControllers.splice(index2, 1);
     grabbing = false;
   }
 }
@@ -276,10 +277,9 @@ function onPinchStart(event) {
   const object = collideObject(indexTip);
   if (object) {
     grabbing = true;
-    molecule.atoms.setColorAt(object, new THREE.Color( 0xffffff ));
-    molecule.atoms.instanceColor.needsUpdate = true;
     controller.userData.selected = object;
     grabbedMeshes.push(object);
+    grabbingControllers.push(controller.id);
   }
 }
 
@@ -289,22 +289,38 @@ function updateMeshPositions() {
     atomBodies[i].velocity.y = atomBodies[i].velocity.y / 1.01;
     atomBodies[i].velocity.z = atomBodies[i].velocity.z / 1.01;
 
-    // const thisMeshId = meshes[i].id;
-    // const isGrabbed = grabbedMeshes.some((grabbedMesh) => {
-    //   return thisMeshId === grabbedMesh.id;
-    // });
+    const isGrabbed = grabbedMeshes.includes(i);
 
-    // if (isGrabbed) {
-    //   console.log("hey");
-    //   meshes[i].getWorldPosition(tmpVector1);
-    //   meshes[i].getWorldQuaternion(tmpQuatertnion);
-    //   bodies[i].position.copy(tmpVector1);
-    //   bodies[i].quaternion.copy(tmpQuatertnion);
-    // } else {
+    if (isGrabbed) {
+      // I need to store wich controller did the pinch
+      // Then get its indextip position and quaternion
+      // create the tranformation matrix and apply it to the object pinched
+      // and make the body follow this position
+      const index = grabbedMeshes.indexOf(i);
+      const controller = scene.getObjectById(grabbingControllers[index]);
+      const indexTip = controller.joints["index-finger-tip"];
+      indexTip.getWorldPosition(tmpVector1);
+      indexTip.getWorldQuaternion(tmpQuatertnion);
+
+      const matrix = new THREE.Matrix4();
+      matrix.setPosition(tmpVector1.x, tmpVector1.y, tmpVector1.z);
+      // matrix.makeRotationFromQuaternion(tmpQuatertnion);
+      molecule.atoms.setMatrixAt(i, matrix);
+      atomBodies[i].position.copy(tmpVector1);
+      atomBodies[i].quaternion.copy(tmpQuatertnion);
+      
+
+      // meshes[i].getWorldPosition(tmpVector1);
+      // meshes[i].getWorldQuaternion(tmpQuatertnion);
+
+
+      // bodies[i].position.copy(tmpVector1);
+      // bodies[i].quaternion.copy(tmpQuatertnion);
+    } else {
       const matrix = new THREE.Matrix4();
       matrix.setPosition(atomBodies[i].position.x, atomBodies[i].position.y, atomBodies[i].position.z);
       molecule.atoms.setMatrixAt(i, matrix);
-    // }
+    }
   }
 
   molecule.atoms.instanceMatrix.needsUpdate = true;
