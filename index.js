@@ -264,7 +264,6 @@ function onPinchEnd(event) {
     const index2 = grabbingControllers.indexOf(id);
     grabbedMeshes.splice(index, 1);
     grabbingControllers.splice(index2, 1);
-    grabbing = false;
   }
 }
 
@@ -273,7 +272,6 @@ function onPinchStart(event) {
   const indexTip = controller.joints["index-finger-tip"];
   const object = collideObject(indexTip);
   if (object) {
-    grabbing = true;
     controller.userData.selected = object;
     grabbedMeshes.push(object);
     grabbingControllers.push(controller.id);
