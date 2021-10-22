@@ -37,11 +37,8 @@ const sphereShape = new CANNON.Sphere(atomRadius * 1.3);
 
 let controls;
 
-let grabbing = false;
 
-const atoms = [];
 const atomBodies = [];
-const sticks = [];
 const bodies = [];
 const meshes = [];
 let grabbedMeshes = [];
@@ -292,10 +289,6 @@ function updateMeshPositions() {
     const isGrabbed = grabbedMeshes.includes(i);
 
     if (isGrabbed) {
-      // I need to store wich controller did the pinch
-      // Then get its indextip position and quaternion
-      // create the tranformation matrix and apply it to the object pinched
-      // and make the body follow this position
       const index = grabbedMeshes.indexOf(i);
       const controller = scene.getObjectById(grabbingControllers[index]);
       const indexTip = controller.joints["index-finger-tip"];
@@ -308,14 +301,6 @@ function updateMeshPositions() {
       molecule.atoms.setMatrixAt(i, matrix);
       atomBodies[i].position.copy(tmpVector1);
       atomBodies[i].quaternion.copy(tmpQuatertnion);
-      
-
-      // meshes[i].getWorldPosition(tmpVector1);
-      // meshes[i].getWorldQuaternion(tmpQuatertnion);
-
-
-      // bodies[i].position.copy(tmpVector1);
-      // bodies[i].quaternion.copy(tmpQuatertnion);
     } else {
       const matrix = new THREE.Matrix4();
       matrix.setPosition(atomBodies[i].position.x, atomBodies[i].position.y, atomBodies[i].position.z);
@@ -328,28 +313,6 @@ function updateMeshPositions() {
   updateBonds();
 
   molecule.bonds.instanceMatrix.needsUpdate = true;
-
-  // if (grabbing) {
-  //   const grabbedAtomIndex = atoms.indexOf(grabbedMesh);
-  // }
-
-  // sticks.forEach(function (bond) {
-  //   atoms[bond.atomA].getWorldPosition(tmpVector1);
-  //   atoms[bond.atomB].getWorldPosition(tmpVector2);
-
-  //   const vec = tmpVector1.clone();
-  //   vec.sub(tmpVector2);
-  //   const h = vec.length();
-  //   vec.normalize();
-  //   const quaternion = new THREE.Quaternion();
-  //   quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vec);
-  //   bond.meshes[0].position.set(0, 0, 0);
-  //   bond.meshes[0].rotation.set(0, 0, 0);
-  //   // bond.meshes[0].scale.y += 0.01;
-  //   bond.meshes[0].translateOnAxis(0, h / 2, 0);
-  //   bond.meshes[0].applyQuaternion(quaternion);
-  //   bond.meshes[0].position.set(tmpVector2.x, tmpVector2.y, tmpVector2.z);
-  // });
 }
 
 function buildMolecule(pdb) {
@@ -371,44 +334,6 @@ function buildMolecule(pdb) {
       atomPosition.add(translation);
 
       molecule.atomPositions.push(atomPosition);
-
-      // if (lineas[i].substring(77, 78).trim() === "C") {
-      //   atomMaterial = carbonMaterial;
-      // }
-      // if (lineas[i].substring(77, 78).trim() === "N") {
-      //   atomMaterial = nitrogenMaterial;
-      // }
-      // if (lineas[i].substring(77, 78).trim() === "O") {
-      //   atomMaterial = oxygenMaterial;
-      // }
-      // if (lineas[i].substring(77, 78).trim() === "S") {
-      //   atomMaterial = sulfurMaterial;
-      // }
-      // if (lineas[i].substring(77, 78).trim() === "H") {
-      //   atomMaterial = hydrogenMaterial;
-      // }
-
-      // const atom = new THREE.Mesh(atomGeometry, atomMaterial);
-      // atom.position.set(
-      //   parseFloat(lineas[i].substring(30, 38)),
-      //   parseFloat(lineas[i].substring(38, 46)),
-      //   parseFloat(lineas[i].substring(46, 54))
-      // );
-      // atom.position.multiplyScalar(scale);
-      // atom.position.add(translation);
-      // atom.geometry.computeBoundingSphere();
-      // meshes.push(atom);
-
-      // const sphereBody = new CANNON.Body({
-      //   mass: mass,
-      //   shape: sphereShape,
-      // });
-      // sphereBody.position.copy(atom.position);
-      // bodies.push(sphereBody);
-      // atomBodies.push(sphereBody);
-      // world.addBody(sphereBody);
-      // scene.add(atom);
-      // atoms.push(atom);
     }
   }
 
@@ -480,28 +405,8 @@ function buildMolecule(pdb) {
     //then the first half of the bond is from sphere 1 to 2 and the
     //second half of the bond is from point2 to point3
 
-    // const point1 = new THREE.Vector3();
-    // const atomMatrix = new THREE.Matrix4();
-    // molecule.atoms.getMatrixAt(atomIndex, atomMatrix);
-    // point1.setFromMatrixPosition(atomMatrix)
-
     bonds[atom].forEach(function (bondedAtom) {
       const bondedAtomIndex = bondKeys.indexOf(bondedAtom);
-
-      // const point3 = new THREE.Vector3();
-      // const atomMatrix2 = new THREE.Matrix4();
-      // molecule.atoms.getMatrixAt(bondedAtomIndex, atomMatrix2);
-      // point3.setFromMatrixPosition(atomMatrix2)
-
-      // const bond1 = cylindricalSegment(
-      //   point3,
-      //   point1,
-      //   stickRadius,
-      //   material
-      // );
-
-      // scene.add(bond1)
-
       molecule.sticks.push({
         atomA: atomIndex,
         atomB: bondedAtomIndex,
